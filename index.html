@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>متتبع المشاهدة</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--tx:#1c1c1a;--mu:#76746d;--bd:#e3e1d9;--ac:#1d9e75;--ac2:#e6f5ef;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--card:#212120;--tx:#eeede8;--mu:#9a988f;--bd:#33332f;--ac:#3fc79b;--ac2:#1b3a30}}
+:root[data-theme="dark"]{--bg:#161615;--card:#212120;--tx:#eeede8;--mu:#9a988f;--bd:#33332f;--ac:#3fc79b;--ac2:#1b3a30}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;line-height:1.5}
+.w{max-width:720px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:8px 0 4px}
+.sub{color:var(--mu);font-size:13px;margin-bottom:14px}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;font:inherit;font-size:15px;cursor:pointer}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.stat{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+.bar{height:8px;background:var(--bd);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--ac);width:0;transition:width .25s}
+.row{display:flex;justify-content:space-between;font-size:14px}
+.opt{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mu);margin-bottom:12px}
+h2{font-size:16px;margin:18px 0 8px}
+.it{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.it.done{background:var(--ac2);border-color:var(--ac)}
+.top{display:flex;align-items:center;gap:10px;cursor:pointer}
+.ck{width:24px;height:24px;border:2px solid var(--bd);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;flex:none}
+.done .ck{background:var(--ac);border-color:var(--ac)}
+.nm{flex:1;direction:ltr;text-align:right;font-size:15px}
+.done .nm{text-decoration:line-through;opacity:.65}
+.ct{font-size:12px;color:var(--mu);white-space:nowrap}
+.ss{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ss button{min-width:40px;padding:5px 10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:8px;font:inherit;font-size:13px;cursor:pointer}
+.ss button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.ft{margin-top:20px;text-align:center}
+.ft button{background:none;border:1px solid var(--bd);color:var(--mu);padding:8px 14px;border-radius:8px;font:inherit;font-size:13px;cursor:pointer}
+.note{color:var(--mu);font-size:12px;text-align:center;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="w">
+<h1>🎬 متتبع المشاهدة</h1>
+<div class="sub">علّم على اللي شفته. المسلسلات والأنمي تتبعها حسب السيزن.</div>
+<div class="ft" style="margin:0 0 12px;text-align:right"><button id="auth">تسجيل الدخول بقوقل لمزامنة التقدم</button></div>
+<div class="tabs" id="tabs"></div>
+<div class="stat"><div class="row"><span id="sl"></span><span id="sp"></span></div><div class="bar"><i id="sb"></i></div></div>
+<label class="opt"><input type="checkbox" id="hide"> أخفِ اللي شفته</label>
+<div id="list"></div>
+<div class="ft"><button id="reset">تصفير كل التقدم</button></div>
+<div class="note">يُحفظ التقدم في متصفحك على هذا الجهاز. عدد السيزنات تقريبي وقد يتغير.</div>
+</div>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import{getAuth,GoogleAuthProvider,signInWithPopup,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import{getFirestore,doc,getDoc,setDoc}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+// الصق إعدادات مشروعك هنا (Firebase Console > Project settings > Your apps)
+const firebaseConfig={apiKey:"AIzaSyCFGSetxrQH-ze2pmU89miI-8ugfTLh1UU",authDomain:"claude-tracking-706f8.firebaseapp.com",projectId:"claude-tracking-706f8",appId:"1:68993830897:web:592879c431750242ebfe50"};
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
+let user=null;
+var D={
+movies:{"أفلام":0,cats:[
+["دراما",["The Shawshank Redemption","The Godfather","Schindler’s List","12 Angry Men","Forrest Gump"]],
+["أكشن",["The Dark Knight","Gladiator","Mad Max: Fury Road","Terminator 2","Die Hard"]],
+["كوميدي",["Groundhog Day","The Grand Budapest Hotel","The Big Lebowski","Airplane!","Superbad"]],
+["إثارة",["Se7en","Memento","Prisoners","Parasite","Gone Girl"]],
+["خيال علمي",["Inception","Interstellar","Blade Runner 2049","The Matrix","Dune: Part Two"]],
+["جريمة",["Pulp Fiction","Goodfellas","The Godfather Part II","City of God","Heat"]],
+["رومانسي",["Before Sunrise","Eternal Sunshine of the Spotless Mind","Titanic","La La Land","Amélie"]],
+["أنيميشن",["Spirited Away","Spider-Man: Into the Spider-Verse","WALL-E","The Lion King","Coco"]],
+["مغامرة وفانتازيا",["The Return of the King","The Fellowship of the Ring","Raiders of the Lost Ark","Pirates: Black Pearl","The Princess Bride"]]]},
+series:{cats:[
+["دراما",[["Breaking Bad",5],["The Sopranos",6],["The Wire",5],["Succession",4],["Mad Men",7]]],
+["جريمة وإثارة",[["Better Call Saul",6],["Mindhunter",2],["Sherlock",4],["Fargo",5],["Narcos",3]]],
+["كوميدي",[["Seinfeld",9],["The Office (US)",9],["Friends",10],["Arrested Development",5],["Parks and Recreation",7]]],
+["خيال علمي وفانتازيا",[["Game of Thrones",8],["Black Mirror",7],["Dark",3],["The Expanse",6],["Severance",2]]],
+["وثائقي ومحدود",[["Planet Earth II",1],["Chernobyl",1],["Band of Brothers",1],["Blue Planet II",1],["Our Planet",2]]]]},
+anime:{cats:[
+["أكشن وشونين",[["Fullmetal Alchemist: Brotherhood",1],["Hunter x Hunter (2011)",1],["Attack on Titan",4],["Jujutsu Kaisen",2],["Demon Slayer",4]]],
+["نفسي وتشويق",[["Death Note",1],["Monster",1],["Code Geass",2],["Odd Taxi",1],["Paranoia Agent",1]]],
+["دراما ورومانسي",[["Clannad: After Story",1],["Your Lie in April",1],["Violet Evergarden",1],["Toradora!",1],["Horimiya",1]]],
+["كوميدي",[["Gintama",1],["Kaguya-sama: Love Is War",3],["Grand Blue",2],["KonoSuba",3],["Nichijou",1]]],
+["خيال علمي",[["Steins;Gate",1],["Cowboy Bebop",1],["Neon Genesis Evangelion",1],["Psycho-Pass",3],["Planetes",1]]],
+["مغامرة وفانتازيا",[["Frieren: Beyond Journey’s End",2],["One Piece",1],["Mushishi",2],["Made in Abyss",2],["Fate/Zero",2]]]]}
+};
+var NAMES={movies:"أفلام",series:"مسلسلات",anime:"أنمي"};
+var S={},tab="movies",hide=false;
+try{S=JSON.parse(localStorage.getItem("trk")||"{}")||{}}catch(e){S={}}
+function save(){try{localStorage.setItem("trk",JSON.stringify(S))}catch(e){}
+if(user)setDoc(doc(db,"users",user.uid),{progress:JSON.stringify(S)}).catch(function(e){console.error(e)})}
+var ab=document.getElementById("auth");
+ab.onclick=function(){if(user)signOut(auth);else signInWithPopup(auth,new GoogleAuthProvider()).catch(function(e){alert("تعذر تسجيل الدخول: "+e.code)})};
+onAuthStateChanged(auth,async function(u){user=u;ab.textContent=u?"مزامنة مفعّلة · تسجيل الخروج":"تسجيل الدخول بقوقل لمزامنة التقدم";
+if(u){try{var r=await getDoc(doc(db,"users",u.uid));if(r.exists())S=JSON.parse(r.data().progress||"{}");else save()}catch(e){console.error(e)}render()}});
+function isMovie(){return tab==="movies"}
+function done(k,n){var v=S[k];return isMovie()?!!v:(Array.isArray(v)&&v.length>=n)}
+function cnt(k){var v=S[k];return Array.isArray(v)?v.length:0}
+function toggleMovie(k){S[k]=!S[k];save();render()}
+function toggleSeason(k,i,n){var v=Array.isArray(S[k])?S[k].slice():[];var p=v.indexOf(i);if(p>-1)v.splice(p,1);else v.push(i);S[k]=v;save();render()}
+function toggleAll(k,n){var all=[];for(var i=1;i<=n;i++)all.push(i);S[k]=done(k,n)?[]:all;save();render()}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}
+function render(){
+var t=document.getElementById("tabs");t.innerHTML="";
+["movies","series","anime"].forEach(function(k){var b=document.createElement("button");b.textContent=NAMES[k];b.className=k===tab?"on":"";b.onclick=function(){tab=k;render()};t.appendChild(b)});
+var out="",total=0,seen=0,sTot=0,sSeen=0;
+D[tab].cats.forEach(function(c){
+var h="";
+c[1].forEach(function(it){
+var nm=isMovie()?it:it[0],n=isMovie()?1:it[1],k=tab+":"+nm,d=done(k,n);
+total++;if(d)seen++;
+if(!isMovie()){sTot+=n;sSeen+=cnt(k)}
+if(hide&&d)return;
+var id=encodeURIComponent(k).replace(/'/g,"%27");
+h+='<div class="it'+(d?" done":"")+'"><div class="top" data-k="'+esc(k)+'" data-n="'+n+'"><div class="ck">'+(d?"✓":"")+'</div><div class="nm">'+esc(nm)+'</div>'+(isMovie()?"":'<div class="ct">'+cnt(k)+'/'+n+' سيزن</div>')+'</div>';
+if(!isMovie()&&n>1){h+='<div class="ss">';for(var i=1;i<=n;i++){var on=(S[k]||[]).indexOf(i)>-1;h+='<button class="'+(on?"on":"")+'" data-k="'+esc(k)+'" data-s="'+i+'" data-n="'+n+'">S'+i+(on?" ✓":"")+'</button>'}h+='</div>'}
+h+='</div>'});
+if(h)out+="<h2>"+c[0]+"</h2>"+h});
+document.getElementById("list").innerHTML=out||'<div class="note">كل شي مكتمل 🎉</div>';
+document.getElementById("sl").textContent="شفت "+seen+" من "+total;
+var pct=total?Math.round(seen/total*100):0;
+document.getElementById("sp").textContent=pct+"%"+(isMovie()?"":" · "+sSeen+"/"+sTot+" سيزن");
+document.getElementById("sb").style.width=pct+"%"}
+document.getElementById("list").addEventListener("click",function(e){
+var b=e.target.closest("button[data-s]");
+if(b){toggleSeason(b.dataset.k,+b.dataset.s,+b.dataset.n);return}
+var r=e.target.closest(".top");
+if(r){var k=r.dataset.k,n=+r.dataset.n;if(isMovie())toggleMovie(k);else toggleAll(k,n)}});
+document.getElementById("hide").onchange=function(){hide=this.checked;render()};
+document.getElementById("reset").onclick=function(){if(confirm("متأكد تبي تصفّر كل التقدم؟")){S={};save();render()}};
+render();
+</script>
+</body>
+</html>
